@@ -1,0 +1,341 @@
+<div class="sim-container">
+  <h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">Interaktive Simulation der Phasenverschiebung zwischen Strom und Spannung</h2>
+
+  <!-- Steuerung: Modus -->
+  <div class="controls-group">
+    <button class="sim-btn active" id="btnR" onclick="setMode('R')">Ohmsch (R)</button>
+    <button class="sim-btn" id="btnC" onclick="setMode('C')">Kondensator (C)</button>
+    <button class="sim-btn" id="btnL" onclick="setMode('L')">Spule (L)</button>
+  </div>
+
+  <!-- Info-Karten -->
+  <div class="info-grid">
+    <div class="info-card">
+      <div class="info-label">Phasenverschiebung</div>
+      <div id="phiOut" class="info-value">0°</div>
+    </div>
+    <div class="info-card">
+      <div class="info-label">Merkregel</div>
+      <div id="ruleOut" class="info-value rule-text">U und I sind in Phase</div>
+    </div>
+  </div>
+
+  <!-- Steuerung: Frequenz & Play/Pause -->
+  <div class="freq-control">
+    <label for="freq" class="freq-label">Frequenz</label>
+    <input type="range" min="1" max="10" step="1" value="4" id="freq" class="sim-slider" />
+    <span id="freqOut" class="freq-val">4</span>
+    <button id="btnPause" class="sim-btn-icon" onclick="togglePause()" aria-label="Pause">
+      <!-- Pause SVG -->
+      <svg id="icon-pause" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+      <!-- Play SVG (hidden by default) -->
+      <svg id="icon-play" style="display:none;" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+    </button>
+  </div>
+
+  <!-- Legende -->
+  <div class="legend">
+    <span class="legend-item"><span class="legend-color" style="background:#3b82f6;"></span>Spannung U(t)</span>
+    <span class="legend-item"><span class="legend-color" style="background:#ef4444;"></span>Strom I(t)</span>
+  </div>
+
+  <!-- Canvas Bereiche -->
+  <div class="canvas-grid">
+    <canvas id="wave" width="460" height="220" class="sim-canvas"></canvas>
+    <canvas id="phasor" width="180" height="220" class="sim-canvas"></canvas>
+  </div>
+</div>
+
+<style>
+  :root {
+    --sim-bg: #ffffff;
+    --sim-surface: #f8fafc;
+    --sim-border: #e2e8f0;
+    --sim-text-main: #0f172a;
+    --sim-text-muted: #64748b;
+    --sim-primary: #3b82f6; /* Modern Blue */
+    --sim-secondary: #ef4444; /* Modern Red */
+    --sim-radius: 8px;
+  }
+
+  .sim-container {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--sim-bg);
+    border: 1px solid var(--sim-border);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 700px;
+    margin: 2rem auto;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+    color: var(--sim-text-main);
+  }
+
+  .controls-group {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .sim-btn {
+    flex: 1;
+    min-width: 120px;
+    background: var(--sim-surface);
+    border: 1px solid var(--sim-border);
+    color: var(--sim-text-main);
+    padding: 10px 16px;
+    border-radius: var(--sim-radius);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .sim-btn:hover {
+    background: #f1f5f9;
+  }
+
+  .sim-btn.active {
+    background: #eff6ff;
+    border-color: var(--sim-primary);
+    color: var(--sim-primary);
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .info-card {
+    background: var(--sim-surface);
+    border: 1px solid var(--sim-border);
+    border-radius: var(--sim-radius);
+    padding: 16px;
+  }
+
+  .info-label {
+    font-size: 13px;
+    color: var(--sim-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+
+  .info-value {
+    font-size: 20px;
+    font-weight: 600;
+  }
+
+  .rule-text {
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  .freq-control {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+    background: var(--sim-surface);
+    padding: 12px 16px;
+    border-radius: var(--sim-radius);
+    border: 1px solid var(--sim-border);
+  }
+
+  .freq-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--sim-text-muted);
+  }
+
+  .sim-slider {
+    flex: 1;
+    cursor: pointer;
+    accent-color: var(--sim-primary);
+  }
+
+  .freq-val {
+    font-size: 15px;
+    font-weight: 600;
+    min-width: 24px;
+    text-align: right;
+  }
+
+  .sim-btn-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: transparent;
+    border: 1px solid var(--sim-border);
+    border-radius: 50%;
+    color: var(--sim-text-main);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .sim-btn-icon:hover {
+    background: #e2e8f0;
+  }
+
+  .legend {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--sim-text-muted);
+  }
+
+  .legend-color {
+    width: 24px;
+    height: 4px;
+    border-radius: 2px;
+    display: inline-block;
+  }
+
+  .canvas-grid {
+    display: grid;
+    grid-template-columns: 1fr 180px;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .sim-canvas {
+    width: 100%;
+    height: 100%;
+    background: var(--sim-surface);
+    border: 1px solid var(--sim-border);
+    border-radius: var(--sim-radius);
+  }
+
+  @media (max-width: 600px) {
+    .canvas-grid {
+      grid-template-columns: 1fr;
+    }
+    .sim-canvas {
+      height: 220px;
+    }
+  }
+</style>
+
+<script>
+const modes = {
+  R: { phi: 0, label: '0°', rule: 'U und I sind in Phase' },
+  C: { phi: Math.PI/2, label: '−90° (I eilt U voraus)', rule: 'Kondensator: Strom eilt vor' },
+  L: { phi: -Math.PI/2, label: '+90° (I hinkt U hinterher)', rule: 'Spule: Strom kommt zu spät' }
+};
+
+let mode = 'R', t = 0, paused = false, freq = 4;
+const waveC = document.getElementById('wave'), phC = document.getElementById('phasor');
+const wctx = waveC.getContext('2d'), pctx = phC.getContext('2d');
+
+// Colors hardcoded to match the CSS variables for reliability in canvas
+const colorU = '#3b82f6';
+const colorI = '#ef4444';
+const colorBorder = '#e2e8f0';
+const colorText = '#64748b';
+
+function setMode(m){
+  mode = m;
+  document.getElementById('phiOut').textContent = modes[m].label;
+  document.getElementById('ruleOut').textContent = modes[m].rule;
+  
+  ['R','C','L'].forEach(k => {
+    const btn = document.getElementById('btn' + k);
+    if(k === m) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+}
+
+function togglePause(){
+  paused = !paused;
+  document.getElementById('icon-pause').style.display = paused ? 'none' : 'block';
+  document.getElementById('icon-play').style.display = paused ? 'block' : 'none';
+}
+
+document.getElementById('freq').addEventListener('input', e => {
+  freq = Number(e.target.value);
+  document.getElementById('freqOut').textContent = freq;
+});
+
+function draw(){
+  // Wave Canvas
+  const W = waveC.width, H = waveC.height, mid = H/2, amp = H*0.35;
+  wctx.clearRect(0, 0, W, H);
+  
+  // Grid line
+  wctx.strokeStyle = colorBorder; wctx.lineWidth = 2;
+  wctx.beginPath(); wctx.moveTo(0, mid); wctx.lineTo(W, mid); wctx.stroke();
+  
+  const k = freq * 2 * Math.PI / W * 2;
+  const phi = modes[mode].phi;
+  
+  const plot = (color, ph) => {
+    wctx.strokeStyle = color; 
+    wctx.lineWidth = 3; 
+    wctx.lineJoin = 'round';
+    wctx.beginPath();
+    for(let x = 0; x <= W; x++){
+      const y = mid - amp * Math.sin(k * x - t + ph);
+      x === 0 ? wctx.moveTo(x, y) : wctx.lineTo(x, y);
+    }
+    wctx.stroke();
+  };
+  plot(colorU, 0);
+  plot(colorI, phi);
+
+  // Phasor Canvas
+  const PW = phC.width, PH = phC.height, cx = PW/2, cy = PH/2 - 10, r = 65;
+  pctx.clearRect(0, 0, PW, PH);
+  
+  // Background circle and axes
+  pctx.strokeStyle = colorBorder; pctx.lineWidth = 2;
+  pctx.beginPath(); pctx.arc(cx, cy, r, 0, 2*Math.PI); pctx.stroke();
+  pctx.beginPath(); pctx.moveTo(cx-r-15, cy); pctx.lineTo(cx+r+15, cy); pctx.stroke();
+  pctx.beginPath(); pctx.moveTo(cx, cy-r-15); pctx.lineTo(cx, cy+r+15); pctx.stroke();
+  
+  const arrow = (ang, color) => {
+    const ex = cx + r * Math.cos(ang), ey = cy - r * Math.sin(ang);
+    pctx.strokeStyle = color; pctx.fillStyle = color; pctx.lineWidth = 3;
+    pctx.beginPath(); pctx.moveTo(cx, cy); pctx.lineTo(ex, ey); pctx.stroke();
+    
+    // Arrow head
+    const a = Math.atan2(cy-ey, ex-cx);
+    pctx.beginPath();
+    pctx.moveTo(ex, ey);
+    pctx.lineTo(ex - 10 * Math.cos(a - 0.4), ey + 10 * Math.sin(a - 0.4));
+    pctx.lineTo(ex - 10 * Math.cos(a + 0.4), ey + 10 * Math.sin(a + 0.4));
+    pctx.closePath(); pctx.fill();
+  };
+  
+  arrow(t, colorU);
+  arrow(t + phi, colorI);
+  
+  // Label
+  pctx.fillStyle = colorText; 
+  pctx.font = '500 13px system-ui, sans-serif'; 
+  pctx.textAlign = 'center';
+  pctx.fillText('Zeigerdiagramm', cx, PH - 15);
+
+  if(!paused) t += 0.03 * freq / 2;
+  requestAnimationFrame(draw);
+}
+
+// Initialize
+setMode('R');
+draw();
+</script>
